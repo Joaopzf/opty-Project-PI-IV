@@ -21,6 +21,7 @@ import Perfil from './pages/Perfil';
 import ChatCliente from './pages/ChatCliente';
 import ChatSupervisor from './pages/ChatSupervisor';
 import NotFound from './pages/NotFound';
+import ResetPassword from '@/pages/ResetPassword';
 
 
 /* --- CODE --- */
@@ -44,6 +45,14 @@ const App = () => (
                   <Index />
                 </GuestRoute>
               }
+            />
+            <Route 
+              path='/reset-password' 
+              element={
+                <GuestRoute>
+                  <ResetPassword />
+                </GuestRoute>
+              } 
             />
             <Route
               path='/login'
