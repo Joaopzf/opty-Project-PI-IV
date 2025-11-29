@@ -1,4 +1,4 @@
-// front-end/src/pages/Resultados.tsx (Novo Conteúdo)
+// front-end/src/pages/Resultados.tsx
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
@@ -48,7 +48,6 @@ interface ProductDisplay {
   offers: Offer[];
 }
 
-
 const Resultados = () => {
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get('q') || 'Produto não especificado';
@@ -57,10 +56,10 @@ const Resultados = () => {
   const [products, setProducts] = useState<ProductDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { toast } = useToast();
 
-  // Estados mockados para filtros (podem ser aprimorados mais tarde)
+  // Estados de filtros
   const [filters, setFilters] = useState({
     priceMin: 0,
     priceMax: 10000,
@@ -73,10 +72,10 @@ const Resultados = () => {
   const stores = [
     { id: 'mercadolivre', name: 'Mercado Livre' },
     // Outras lojas estarão aqui quando forem implementadas no backend
-    { id: 'amazon', name: 'Amazon' }, 
+    { id: 'amazon', name: 'Amazon' },
     { id: 'magalu', name: 'Magazine Luiza' },
   ];
-  
+
   // --- FUNÇÃO DE BUSCA REAL ---
   const fetchResults = async (query: string) => {
     if (!query) return;
@@ -90,7 +89,9 @@ const Resultados = () => {
       // Mapeamento e Transformação dos Produtos do Backend para o formato do Card
       const mappedProducts: ProductDisplay[] = mlProducts.map((p) => {
         // Remove R$ e pontos de milhar, troca vírgula por ponto para conversão em float
-        const numericPrice = parseFloat(p.price.replace('R$', '').replace('.', '').replace(',', '.').trim());
+        const numericPrice = parseFloat(
+          p.price.replace('R$', '').replace(/\./g, '').replace(',', '.').trim()
+        );
 
         const offer: Offer = {
           store: 'Mercado Livre',
@@ -108,16 +109,15 @@ const Resultados = () => {
       });
 
       setProducts(mappedProducts);
-
     } catch (err) {
-      console.error("Erro na busca: ", err);
-      // Aqui usamos o código 503/504/500 que definimos no backend
-      const errorMessage = (err as any).response?.data?.detail || 'Erro desconhecido ao comunicar com o servidor.';
+      console.error('Erro na busca: ', err);
+      const errorMessage =
+        (err as any).response?.data?.detail || 'Erro desconhecido ao comunicar com o servidor.';
       setError(`Falha na busca. Detalhe: ${errorMessage}`);
       toast({
-        title: "Erro de Busca",
-        description: "Não foi possível carregar os resultados do Mercado Livre.",
-        variant: "destructive",
+        title: 'Erro de Busca',
+        description: 'Não foi possível carregar os resultados do Mercado Livre.',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -127,11 +127,10 @@ const Resultados = () => {
   // Efeito para buscar os dados na montagem do componente ou na mudança da query
   useEffect(() => {
     fetchResults(searchQuery);
-  }, [searchQuery]); 
+  }, [searchQuery]);
 
+  // --- FUNÇÕES DE FILTRO ---
 
-  // --- RESTANTE DO COMPONENTE ---
-  
   const toggleStore = (storeId: string) => {
     setFilters((prev) => ({
       ...prev,
@@ -169,7 +168,9 @@ const Resultados = () => {
             max={10000}
             step={100}
             value={[filters.priceMin, filters.priceMax]}
-            onValueChange={([min, max]) => setFilters({ ...filters, priceMin: min, priceMax: max })}
+            onValueChange={([min, max]) =>
+              setFilters({ ...filters, priceMin: min, priceMax: max })
+            }
             className='mb-4'
           />
           <div className='flex gap-2'>
@@ -178,7 +179,9 @@ const Resultados = () => {
               <Input
                 type='number'
                 value={filters.priceMin}
-                onChange={(e) => setFilters({ ...filters, priceMin: Number(e.target.value) })}
+                onChange={(e) =>
+                  setFilters({ ...filters, priceMin: Number(e.target.value) || 0 })
+                }
                 className='h-9'
               />
             </div>
@@ -187,7 +190,9 @@ const Resultados = () => {
               <Input
                 type='number'
                 value={filters.priceMax}
-                onChange={(e) => setFilters({ ...filters, priceMax: Number(e.target.value) })}
+                onChange={(e) =>
+                  setFilters({ ...filters, priceMax: Number(e.target.value) || 0 })
+                }
                 className='h-9'
               />
             </div>
@@ -219,7 +224,10 @@ const Resultados = () => {
       {/* Condition Filter */}
       <div>
         <Label className='mb-3 block font-semibold'>Condição</Label>
-        <RadioGroup value={filters.condition} onValueChange={(val) => setFilters({ ...filters, condition: val })}>
+        <RadioGroup
+          value={filters.condition}
+          onValueChange={(val) => setFilters({ ...filters, condition: val })}
+        >
           <div className='flex items-center space-x-2'>
             <RadioGroupItem value='all' id='all' />
             <Label htmlFor='all' className='cursor-pointer font-normal'>
@@ -243,6 +251,44 @@ const Resultados = () => {
     </div>
   );
 
+  // =========================================================
+  //  AQUI ENTRA O “PASSO 1”: FILTRAR E ORDENAR PRODUTOS
+  // =========================================================
+
+  // 1) Filtra as ofertas de cada produto pela faixa de preço
+  const productsWithinPriceRange = products
+    .map((product) => {
+      const offersWithinRange = product.offers.filter((offer) => {
+        const price = offer.price ?? 0;
+        return price >= filters.priceMin && price <= filters.priceMax;
+      });
+
+      return {
+        ...product,
+        offers: offersWithinRange,
+      };
+    })
+    // Mantém só produtos que ainda têm pelo menos uma oferta dentro da faixa
+    .filter((product) => product.offers.length > 0);
+
+  // 2) Ordena de acordo com o "Ordenar por"
+  const sortedProducts = [...productsWithinPriceRange];
+
+  if (sortBy === 'lowest-price' || sortBy === 'highest-price') {
+    sortedProducts.sort((a, b) => {
+      const minPriceA = Math.min(...a.offers.map((o) => o.price));
+      const minPriceB = Math.min(...b.offers.map((o) => o.price));
+      return minPriceA - minPriceB;
+    });
+
+    if (sortBy === 'highest-price') {
+      sortedProducts.reverse();
+    }
+  } else if (sortBy === 'alphabetical') {
+    sortedProducts.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  // --- RETURN DO COMPONENTE ---
   return (
     <div className='min-h-screen flex flex-col bg-background'>
       <DashboardNav userName='João' />
@@ -255,7 +301,9 @@ const Resultados = () => {
               Dashboard
             </Link>
             <ChevronRight className='h-4 w-4 text-muted-foreground' />
-            <span className='text-foreground font-medium'>Resultados para '{searchQuery}'</span>
+            <span className='text-foreground font-medium'>
+              Resultados para '{searchQuery}'
+            </span>
           </div>
         </div>
       </div>
@@ -276,10 +324,13 @@ const Resultados = () => {
               <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4'>
                 <div>
                   <h1 className='text-2xl sm:text-3xl font-bold text-foreground mb-2'>
-                    Resultados para: <span className='gradient-text'>{searchQuery}</span>
+                    Resultados para:{' '}
+                    <span className='gradient-text'>{searchQuery}</span>
                   </h1>
                   <p className='text-muted-foreground'>
-                    {isLoading ? 'Buscando produtos...' : `Encontramos ${products.length} produtos`}
+                    {isLoading
+                      ? 'Buscando produtos...'
+                      : `Encontramos ${sortedProducts.length} produtos`}
                   </p>
                 </div>
 
@@ -314,61 +365,72 @@ const Resultados = () => {
                     <SelectItem value='highest-price'>Maior Preço</SelectItem>
                     <SelectItem value='best-rating'>Melhor Avaliação</SelectItem>
                     <SelectItem value='most-sold'>Mais Vendidos</SelectItem>
-                    <SelectItem value='alphabetical'>Ordem Alfabética (A-Z)</SelectItem>
+                    <SelectItem value='alphabetical'>
+                      Ordem Alfabética (A-Z)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            
+
             {/* --- DISPLAY DE ESTADOS --- */}
-            
+
             {/* Loading State */}
             {isLoading && (
               <div className='flex justify-center items-center h-64'>
                 <Loader2 className='h-8 w-8 animate-spin text-primary' />
-                <p className='ml-3 text-lg text-muted-foreground'>Carregando os melhores preços...</p>
+                <p className='ml-3 text-lg text-muted-foreground'>
+                  Carregando os melhores preços...
+                </p>
               </div>
             )}
-            
+
             {/* Error State */}
             {error && !isLoading && (
               <div className='text-center py-12 glass p-6 rounded-xl border border-red-400'>
                 <AlertTriangle className='h-10 w-10 text-red-600 mx-auto mb-4' />
-                <h3 className='text-xl font-semibold mb-2 text-red-700'>Erro na Busca</h3>
+                <h3 className='text-xl font-semibold mb-2 text-red-700'>
+                  Erro na Busca
+                </h3>
                 <p className='text-red-600 mb-4'>{error}</p>
               </div>
             )}
 
             {/* Products Grid (Show only if not loading and no error) */}
             {!isLoading && !error && (
-                <div className='space-y-4'>
-                    {products.length > 0 ? (
-                        products.map((product, index) => (
-                          <ProductCard 
-                            key={index} 
-                            name={product.name} 
-                            image={product.image}
-                            offers={product.offers} 
-                          />
-                        ))
-                    ) : (
-                        // Empty State
-                        <div className='text-center py-12'>
-                            <div className='text-6xl mb-4'>🔍</div>
-                            <h3 className='text-xl font-semibold mb-2'>Nenhum resultado encontrado</h3>
-                            <p className='text-muted-foreground mb-4'>
-                                Nenhuma oferta foi encontrada para **"{searchQuery}"**. Tente uma busca mais geral ou cheque a ortografia.
-                            </p>
-                            <Button variant='gradient' onClick={() => window.location.href = '/dashboard'}>
-                                Voltar ao Dashboard
-                            </Button>
-                        </div>
-                    )}
-                </div>
+              <div className='space-y-4'>
+                {sortedProducts.length > 0 ? (
+                  sortedProducts.map((product, index) => (
+                    <ProductCard
+                      key={index}
+                      name={product.name}
+                      image={product.image}
+                      offers={product.offers}
+                    />
+                  ))
+                ) : (
+                  // Empty State
+                  <div className='text-center py-12'>
+                    <div className='text-6xl mb-4'>🔍</div>
+                    <h3 className='text-xl font-semibold mb-2'>
+                      Nenhum resultado encontrado
+                    </h3>
+                    <p className='text-muted-foreground mb-4'>
+                      Nenhuma oferta foi encontrada para "{searchQuery}". Tente
+                      uma busca mais geral ou cheque a ortografia.
+                    </p>
+                    <Button
+                      variant='gradient'
+                      onClick={() => (window.location.href = '/dashboard')}
+                    >
+                      Voltar ao Dashboard
+                    </Button>
+                  </div>
+                )}
+              </div>
             )}
-            
+
             {/* --- FIM DISPLAY DE ESTADOS --- */}
-            
           </main>
         </div>
       </div>

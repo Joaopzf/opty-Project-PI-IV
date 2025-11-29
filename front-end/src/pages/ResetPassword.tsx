@@ -24,6 +24,7 @@ const ResetSenha = () => {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validações simples antes de mexer com Supabase
     if (senha !== confirmacao) {
       toast({
         variant: "destructive",
@@ -45,25 +46,8 @@ const ResetSenha = () => {
     setLoading(true);
 
     try {
-      // 1) Garante que existe sessão (link de recuperação válido)
-      const { data: sessionData, error: sessionError } =
-        await supabase.auth.getSession();
-
-      if (sessionError) {
-        console.error("Erro ao obter sessão:", sessionError);
-      }
-
-      if (!sessionData?.session) {
-        toast({
-          variant: "destructive",
-          title: "Sessão inválida ou expirada",
-          description:
-            "Abra novamente o link enviado por e-mail para redefinir sua senha.",
-        });
-        return;
-      }
-
-      // 2) Atualiza a senha do usuário logado (sessão de recuperação)
+      // Supabase docs: na página de recuperação já existe uma sessão temporária,
+      // então basta chamar updateUser com a nova senha
       const { error } = await supabase.auth.updateUser({
         password: senha,
       });
@@ -72,7 +56,7 @@ const ResetSenha = () => {
         throw error;
       }
 
-      // 3) Faz signOut de forma assíncrona, sem travar a UI
+      // logout (não precisa travar a UI esperando isso)
       supabase.auth.signOut().catch((err) => {
         console.error("Erro ao fazer logout após reset de senha:", err);
       });
@@ -82,7 +66,8 @@ const ResetSenha = () => {
         description: "Faça login com sua nova senha.",
       });
 
-      navigate("/login");
+      // Redireciona pro login
+      navigate("/login", { replace: true });
     } catch (err: any) {
       console.error("Erro ao atualizar senha:", err);
       toast({
@@ -93,6 +78,7 @@ const ResetSenha = () => {
           "Não foi possível atualizar sua senha. Tente novamente em instantes.",
       });
     } finally {
+      // GARANTE que o botão sempre destrava
       setLoading(false);
     }
   };
