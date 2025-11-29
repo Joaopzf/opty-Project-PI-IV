@@ -58,10 +58,9 @@ const ForgotPassword = () => {
   };
 
   return (
-    // Fundo com gradiente suave (bg-gradient-subtle simulado)
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-gray-50 to-gray-100 font-sans">
       <div className="w-full max-w-md animate-in fade-in zoom-in duration-500">
-        {/* Logo Opty */}
+        {/* Logo */}
         <Link
           to="/"
           className="flex items-center justify-center gap-2 mb-8 group no-underline"
@@ -87,7 +86,7 @@ const ForgotPassword = () => {
 
           <div className="p-6 pt-6">
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Campo de E-mail */}
+              {/* E-mail */}
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
                 <div className="relative group">
@@ -116,7 +115,7 @@ const ForgotPassword = () => {
               </Button>
             </form>
 
-            {/* Link Voltar */}
+            {/* Voltar para Login */}
             <div className="mt-6 text-center">
               <Link
                 to="/login"
